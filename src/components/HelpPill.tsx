@@ -15,7 +15,7 @@ export function HelpPill() {
   }
 
   return (
-    <div className="pointer-events-none fixed bottom-20 right-4 z-50 sm:right-[calc(50%-260px+16px)]">
+    <div className="pointer-events-none fixed bottom-20 right-4 z-50 sm:right-[calc(50%-300px+16px)]">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger className="pointer-events-auto rounded-full bg-[var(--tg-blue)] text-white shadow-lg px-4 py-2 flex items-center gap-2 text-sm font-semibold active:scale-[0.98] transition">
           <LifeBuoy className="w-4 h-4" />
@@ -24,7 +24,7 @@ export function HelpPill() {
 
         <SheetContent
           side="bottom"
-          className="rounded-t-2xl border-t border-[var(--border)] p-0"
+          className="rounded-t-2xl border-t border-[var(--border)] p-0 max-w-[600px] mx-auto"
           showCloseButton={false}
         >
           <SheetHeader className="p-4 pb-2">
