@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+:root {
+  --background: #f0f2f5;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #2AABEE;
+  --primary-foreground: #ffffff;
+  --secondary: #e8f4fd;
+  --secondary-foreground: #2AABEE;
+  --muted: #f0f2f5;
+  --muted-foreground: #707579;
+  --accent: #e8f4fd;
+  --accent-foreground: #2AABEE;
+  --destructive: #e53935;
+  --destructive-foreground: #ffffff;
+  --border: #e0e0e0;
+  --input: #f0f2f5;
+  --ring: #2AABEE;
+  --radius: 0.75rem;
+  --tg-blue: #2AABEE;
+  --tg-blue-dark: #1a8ac4;
+  --tg-blue-light: #e8f4fd;
+  --tg-green: #4fae4e;
+  --tg-red: #e53935;
+  --tg-gray: #707579;
+  --tg-bg: #f0f2f5;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #ffffff;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  color: #000000;
+}
+
+@layer components {
+  .tg-card {
+    @apply bg-white rounded-2xl border border-[var(--border)] p-5;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .tg-btn-primary {
+    @apply bg-[var(--tg-blue)] text-white rounded-xl h-12 w-full font-semibold
+           hover:bg-[var(--tg-blue-dark)] transition-all active:scale-[0.98] text-base;
+  }
+  .tg-btn-outline {
+    @apply border-2 border-[var(--tg-blue)] text-[var(--tg-blue)] rounded-xl h-12 w-full
+           font-semibold hover:bg-[var(--tg-blue-light)] transition-all active:scale-[0.98] text-base bg-white;
+  }
+  .tg-section-title {
+    @apply text-xs font-semibold text-[var(--tg-gray)] uppercase tracking-wider px-1 mt-4 mb-2;
+  }
+  .tg-pill {
+    @apply rounded-full bg-[var(--tg-blue-light)] text-[var(--tg-blue)] text-xs font-medium px-3 py-1;
+  }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-slide-up {
+  animation: fadeSlideUp 0.4s ease forwards;
+  opacity: 0;
+}
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
