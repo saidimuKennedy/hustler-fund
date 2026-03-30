@@ -2,6 +2,7 @@
 
 import { PageHeader } from '@/components/PageHeader'
 import { MOCK_LOAN } from '@/lib/mock'
+import { getOutstandingCents } from '@/lib/outstanding-balance'
 import {
   ArrowRight,
   CheckCircle,
@@ -10,13 +11,29 @@ import {
   Lock,
   TrendingUp,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 
 export default function LoanSummaryPage() {
   const router = useRouter()
+  const pathname = usePathname()
+  const [outstanding, setOutstanding] = useState(MOCK_LOAN.amountRaw)
+
+  useEffect(() => {
+    const sync = () => setOutstanding(getOutstandingCents())
+    sync()
+    window.addEventListener('pageshow', sync)
+    return () => window.removeEventListener('pageshow', sync)
+  }, [pathname])
+
+  const balanceLabel = outstanding <= 0 ? '0' : outstanding.toLocaleString()
 
   const status =
-    MOCK_LOAN.status === 'active' ? (
+    outstanding <= 0 ? (
+      <span className="inline-flex items-center gap-1 rounded-full bg-white/25 px-2 py-0.5 text-xs text-white">
+        <CheckCircle className="h-3 w-3" /> Fully paid
+      </span>
+    ) : MOCK_LOAN.status === 'active' ? (
       <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs text-white">
         <CheckCircle className="h-3 w-3" /> Active
       </span>
@@ -35,7 +52,7 @@ export default function LoanSummaryPage() {
           <div className="bg-gradient-to-br from-[#2AABEE] to-[#0d7fc4] p-6">
             <p className="mb-1 text-sm text-white/70">Outstanding Balance</p>
             <p className="text-5xl font-extrabold tracking-tight text-white">
-              KES {MOCK_LOAN.amount}
+              KES {balanceLabel}
             </p>
             <div className="mt-3">{status}</div>
           </div>
@@ -56,7 +73,9 @@ export default function LoanSummaryPage() {
         <div>
           <div className="text-[17px] font-bold">Hello, {MOCK_LOAN.name}</div>
           <div className="mt-1 text-sm text-[var(--tg-gray)]">
-            You have an active loan. Repay anytime in small, flexible amounts.
+            {outstanding <= 0
+              ? 'Your loan balance is cleared. Great job staying on track.'
+              : 'You have an active loan. Repay anytime in small, flexible amounts.'}
           </div>
         </div>
 
@@ -72,13 +91,15 @@ export default function LoanSummaryPage() {
           </span>
         </div>
 
-        <button
-          type="button"
-          className="tg-btn-primary flex items-center justify-center gap-2"
-          onClick={() => router.push('/payment-plan')}
-        >
-          Go to Payment Plan <ArrowRight className="h-4 w-4" />
-        </button>
+        {outstanding > 0 ? (
+          <button
+            type="button"
+            className="tg-btn-primary flex items-center justify-center gap-2"
+            onClick={() => router.push('/payment-plan')}
+          >
+            Go to Payment Plan <ArrowRight className="h-4 w-4" />
+          </button>
+        ) : null}
       </div>
     </>
   )

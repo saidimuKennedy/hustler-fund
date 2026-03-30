@@ -4,7 +4,11 @@ import { PageHeader } from '@/components/PageHeader'
 import { Input } from '@/components/ui/input'
 import { MOCK_LOAN } from '@/lib/mock'
 import {
-  ArrowRight,
+  PENDING_PAYMENT_KEY,
+  applyPaymentAndGetRemaining,
+  getOutstandingCents,
+} from '@/lib/outstanding-balance'
+import {
   Building2,
   Calendar,
   CalendarDays,
@@ -14,18 +18,18 @@ import {
   Star,
   Wallet,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Plan = 'full' | 'daily' | 'weekly' | 'custom'
 type PaymentMethod = 'mpesa_push' | 'paybill'
-type Step = 'choose' | 'processing' | 'success'
+type Step = 'choose' | 'waiting' | 'success'
 
 export default function PaymentPlanPage() {
   const router = useRouter()
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null)
   const [customAmount, setCustomAmount] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('mpesa_push')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('paybill')
   const [step, setStep] = useState<Step>('choose')
 
   const paybillAmount = useMemo(() => {
@@ -35,6 +39,35 @@ export default function PaymentPlanPage() {
     if (selectedPlan === 'weekly') return '583'
     return customAmount || '—'
   }, [customAmount, selectedPlan])
+
+  const selectedAmount =
+    selectedPlan === 'full'
+      ? MOCK_LOAN.amount
+      : selectedPlan === 'daily'
+        ? '117'
+        : selectedPlan === 'weekly'
+          ? '583'
+          : selectedPlan === 'custom'
+            ? customAmount || '0'
+            : '0'
+
+  useEffect(() => {
+    if (step !== 'success') return
+    const pending = sessionStorage.getItem(PENDING_PAYMENT_KEY)
+    if (!pending) return
+    sessionStorage.removeItem(PENDING_PAYMENT_KEY)
+    applyPaymentAndGetRemaining(pending)
+  }, [step])
+
+  const isPushOnlyPlan = selectedPlan === 'daily' || selectedPlan === 'custom'
+
+  useEffect(() => {
+    if (selectedPlan === 'daily' || selectedPlan === 'custom') {
+      setPaymentMethod('mpesa_push')
+    } else if (selectedPlan === 'full' || selectedPlan === 'weekly') {
+      setPaymentMethod('paybill')
+    }
+  }, [selectedPlan])
 
   function PlanCard({
     plan,
@@ -97,175 +130,189 @@ export default function PaymentPlanPage() {
     )
   }
 
+  if (step === 'success') {
+    const paidNum = Number(selectedAmount.replace(/,/g, ''))
+    const remaining = Math.max(0, getOutstandingCents() - paidNum)
+    return (
+      <div className="px-4 py-6 flex flex-col gap-4">
+        <div className="tg-card flex flex-col items-center text-center py-8 gap-2">
+          <div className="w-16 h-16 rounded-full bg-[#4fae4e] flex items-center justify-center animate-bounce-once">
+            <CheckCircle2 size={32} color="white" />
+          </div>
+          <p className="text-xl font-extrabold mt-2">Payment Confirmed!</p>
+          <p className="text-3xl font-extrabold text-[#4fae4e]">KES {selectedAmount}</p>
+          <p className="text-xs text-[var(--tg-gray)]">
+            {paymentMethod === 'mpesa_push'
+              ? `Paid via M-Pesa · ${MOCK_LOAN.phone_display}`
+              : `Paid via Paybill ${MOCK_LOAN.paybill}`}
+          </p>
+        </div>
+
+        <div className="tg-card flex justify-between items-center">
+          <div>
+            <p className="text-xs text-[var(--tg-gray)]">Remaining Balance</p>
+            <p className="text-xl font-extrabold text-[var(--tg-blue)] mt-0.5">
+              {remaining <= 0
+                ? 'KES 0 — Fully Paid! 🎉'
+                : `KES ${remaining.toLocaleString()}`}
+            </p>
+          </div>
+          <CheckCircle2 size={24} color="#4fae4e" />
+        </div>
+
+        <button type="button" className="tg-btn-primary" onClick={() => router.push('/')}>
+          ← Back to Summary
+        </button>
+
+        <p className="text-xs text-center text-[var(--tg-gray)]">
+          A confirmation SMS has been sent to {MOCK_LOAN.phone_masked}
+        </p>
+      </div>
+    )
+  }
+
   return (
     <>
       <PageHeader title="Choose Your Payment Plan" showBack />
       <div className="px-4 py-4 space-y-4">
+        <p className="tg-section-title">Select a plan</p>
 
-      <p className="tg-section-title">Select a plan</p>
-
-      <PlanCard
-        plan="full"
-        icon={Wallet}
-        title="Pay in Full"
-        description="Clear your balance in one payment"
-        right={<div className="font-bold text-[var(--tg-blue)]">KES {MOCK_LOAN.amount}</div>}
-        secondaryRight={
-          <div className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--tg-green)]"><Star className="h-3 w-3" /> Recommended</div>
-        }
-      />
-
-      <p className="tg-section-title">Pay in parts</p>
-
-      <PlanCard
-        plan="daily"
-        icon={Calendar}
-        title="Daily Payment"
-        description="Small daily contributions"
-        right={<div className="text-xs text-[var(--tg-gray)]">~KES 117/day</div>}
-      />
-
-      <PlanCard
-        plan="weekly"
-        icon={CalendarDays}
-        title="Weekly Payment"
-        description="Pay once a week"
-        right={<div className="text-xs text-[var(--tg-gray)]">~KES 583/week</div>}
-      />
-
-      <div className="space-y-2">
         <PlanCard
-          plan="custom"
-          icon={SlidersHorizontal}
-          title="Custom Amount"
-          description="You decide the amount"
+          plan="full"
+          icon={Wallet}
+          title="Pay in Full"
+          description="Clear your balance in one payment"
+          right={<div className="font-bold text-[var(--tg-blue)]">KES {MOCK_LOAN.amount}</div>}
+          secondaryRight={
+            <div className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--tg-green)]">
+              <Star className="h-3 w-3" /> Recommended
+            </div>
+          }
         />
 
-        {selectedPlan === 'custom' ? (
-          <div className="transition-all">
-            <Input
-              type="number"
-              inputMode="numeric"
-              placeholder="Enter amount (KES)"
-              value={customAmount}
-              onChange={(e) => setCustomAmount(e.target.value)}
-              className="rounded-xl h-12 focus-visible:border-[var(--tg-blue)] focus-visible:ring-[var(--tg-blue)]"
-            />
+        <p className="tg-section-title">Pay in parts</p>
+
+        <PlanCard
+          plan="daily"
+          icon={Calendar}
+          title="Daily Payment"
+          description="Small daily contributions"
+          right={<div className="text-xs text-[var(--tg-gray)]">~KES 117/day</div>}
+        />
+
+        <PlanCard
+          plan="weekly"
+          icon={CalendarDays}
+          title="Weekly Payment"
+          description="Pay once a week"
+          right={<div className="text-xs text-[var(--tg-gray)]">~KES 583/week</div>}
+        />
+
+        <div className="space-y-2">
+          <PlanCard
+            plan="custom"
+            icon={SlidersHorizontal}
+            title="Custom Amount"
+            description="You decide the amount"
+          />
+
+          {selectedPlan === 'custom' ? (
+            <div className="transition-all">
+              <Input
+                type="number"
+                inputMode="numeric"
+                placeholder="Enter amount (KES)"
+                value={customAmount}
+                onChange={(e) => setCustomAmount(e.target.value)}
+                className="rounded-xl h-12 focus-visible:border-[var(--tg-blue)] focus-visible:ring-[var(--tg-blue)]"
+              />
+            </div>
+          ) : null}
+        </div>
+
+        {selectedPlan !== null ? (
+          <div className="space-y-3">
+            <p className="tg-section-title">Payment method</p>
+
+            {isPushOnlyPlan ? (
+              <>
+                <p className="text-xs text-[var(--tg-gray)] px-0.5">
+                  Daily and custom amounts are collected via STK push to your registered number.
+                </p>
+                <div className="bg-[var(--tg-blue-light)] rounded-xl p-3 text-sm space-y-1">
+                  <div className="flex items-center gap-1">
+                    <Smartphone className="h-4 w-4 shrink-0" /> Push will be sent to{' '}
+                    {MOCK_LOAN.phone_display}
+                  </div>
+                  <div>Enter your M-Pesa PIN when prompted</div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-[var(--tg-blue-light)] rounded-xl p-3 text-sm space-y-2">
+                <div className="flex items-center gap-2 font-semibold text-[var(--tg-blue)]">
+                  <Building2 className="h-4 w-4 shrink-0" />
+                  Paybill
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--tg-gray)]">Paybill Number</span>
+                  <span className="font-semibold">{MOCK_LOAN.paybill}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--tg-gray)]">Account Number</span>
+                  <span className="font-semibold">{MOCK_LOAN.account}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--tg-gray)]">Amount</span>
+                  <span className="font-semibold">KES {paybillAmount}</span>
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
-      </div>
 
-      {selectedPlan !== null ? (
         <div className="space-y-3">
-          <p className="tg-section-title">Payment method</p>
-
-          <div className="grid grid-cols-2 gap-2">
+          {step === 'choose' ? (
             <button
               type="button"
-              onClick={() => setPaymentMethod('mpesa_push')}
               className={[
-                'h-12 rounded-xl font-semibold text-base flex items-center justify-center gap-2 transition-all active:scale-[0.98]',
-                paymentMethod === 'mpesa_push'
-                  ? 'bg-[var(--tg-blue)] text-white'
-                  : 'tg-btn-outline',
+                'tg-btn-primary',
+                !selectedPlan ? 'opacity-50 cursor-not-allowed' : '',
               ].join(' ')}
+              disabled={!selectedPlan}
+              onClick={() => {
+                sessionStorage.setItem(PENDING_PAYMENT_KEY, selectedAmount)
+                setStep('waiting')
+                window.setTimeout(() => setStep('success'), 2000)
+              }}
             >
-              <Smartphone className="w-4 h-4" />
-              M-Pesa Push
+              {paymentMethod === 'mpesa_push' ? 'Send STK Push →' : 'I Have Paid via Paybill →'}
             </button>
-            <button
-              type="button"
-              onClick={() => setPaymentMethod('paybill')}
-              className={[
-                'h-12 rounded-xl font-semibold text-base flex items-center justify-center gap-2 transition-all active:scale-[0.98]',
-                paymentMethod === 'paybill'
-                  ? 'bg-[var(--tg-blue)] text-white'
-                  : 'tg-btn-outline',
-              ].join(' ')}
-            >
-              <Building2 className="w-4 h-4" />
-              Paybill
-            </button>
+          ) : null}
+
+          {step === 'waiting' ? (
+            <div className="tg-card flex flex-col items-center text-center py-6 gap-3">
+              <div className="w-10 h-10 rounded-full border-4 border-[var(--tg-blue-light)] border-t-[var(--tg-blue)] animate-spin" />
+              {paymentMethod === 'mpesa_push' ? (
+                <>
+                  <p className="font-semibold text-sm">STK Push Sent</p>
+                  <p className="text-xs text-[var(--tg-gray)]">
+                    Check your phone {MOCK_LOAN.phone_display} and complete the M-Pesa prompt
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold text-sm">Confirming Payment...</p>
+                  <p className="text-xs text-[var(--tg-gray)]">Verifying your paybill transaction</p>
+                </>
+              )}
+            </div>
+          ) : null}
+
+          <div className="text-center text-xs text-[var(--tg-gray)] px-4">
+            You can repay in small amounts at your own pace. No penalties for partial payments.
           </div>
-
-          {paymentMethod === 'mpesa_push' ? (
-            <div className="bg-[var(--tg-blue-light)] rounded-xl p-3 text-sm space-y-1">
-              <div className="flex items-center gap-1"><Smartphone className="h-4 w-4 shrink-0" /> Push will be sent to {MOCK_LOAN.phone_display}</div>
-              <div>Enter your M-Pesa PIN when prompted</div>
-            </div>
-          ) : (
-            <div className="bg-[var(--tg-blue-light)] rounded-xl p-3 text-sm space-y-2">
-              <div className="flex justify-between">
-                <span className="text-[var(--tg-gray)]">Paybill Number</span>
-                <span className="font-semibold">{MOCK_LOAN.paybill}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--tg-gray)]">Account Number</span>
-                <span className="font-semibold">{MOCK_LOAN.account}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--tg-gray)]">Amount</span>
-                <span className="font-semibold">KES {paybillAmount}</span>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : null}
-
-      <div className="space-y-3">
-        {step === 'choose' ? (
-          <button
-            type="button"
-            className={[
-              'tg-btn-primary',
-              !selectedPlan ? 'opacity-50 cursor-not-allowed' : '',
-            ].join(' ')}
-            disabled={!selectedPlan}
-            onClick={() => {
-              setStep('processing')
-              window.setTimeout(() => setStep('success'), 2000)
-            }}
-          >
-            Confirm Payment
-          </button>
-        ) : null}
-
-        {step === 'processing' ? (
-          <button
-            type="button"
-            className="tg-btn-primary opacity-80 cursor-not-allowed flex items-center justify-center gap-2"
-            disabled
-          >
-            <span className="inline-block w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-            Processing...
-          </button>
-        ) : null}
-
-        {step === 'success' ? (
-          <div className="tg-card text-center py-6">
-            <CheckCircle2 className="w-12 h-12 text-[var(--tg-green)] mx-auto mb-3" />
-            <div className="font-bold text-lg">Payment Initiated!</div>
-            <div className="text-sm text-[var(--tg-gray)] mt-1 px-4">
-              Your M-Pesa push was sent to {MOCK_LOAN.phone_masked}. Enter your PIN
-              to complete.
-            </div>
-            <button
-              type="button"
-              className="tg-btn-primary mt-4"
-              onClick={() => router.push('/')}
-            >
-              Back to Loan Summary
-            </button>
-          </div>
-        ) : null}
-
-        <div className="text-center text-xs text-[var(--tg-gray)] px-4">
-          You can repay in small amounts at your own pace. No penalties for partial
-          payments.
         </div>
       </div>
-    </div>
     </>
   )
 }
-
