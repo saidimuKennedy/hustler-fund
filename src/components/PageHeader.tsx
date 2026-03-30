@@ -1,6 +1,7 @@
 'use client'
 
 import { ArrowLeft } from 'lucide-react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 
 type PageHeaderProps = {
@@ -25,7 +26,14 @@ export function PageHeader({ title, subtitle, showBack }: PageHeaderProps) {
             <ArrowLeft className="h-5 w-5 text-black" />
           </button>
         ) : (
-          <span className="text-xs font-semibold text-[var(--tg-blue)]">Hustler Fund</span>
+          <Image
+            src="/hustler-fund-logo.png"
+            alt="Hustler Fund"
+            width={28}
+            height={28}
+            className="rounded-sm object-contain"
+            priority
+          />
         )}
       </div>
 
